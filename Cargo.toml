@@ -2,7 +2,7 @@
 name = "kuren"
 version = "0.1.0"
 edition = "2021"
-description = "CLI for Kuren - AI Agent Identity & Payments Platform"
+description = "CLI for Kuren - AI Agent Identity & Communication Platform"
 authors = ["rychmc"]
 license = "MIT"
 repository = "https://github.com/telogenesis/kuren-cli"

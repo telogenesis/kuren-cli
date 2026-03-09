@@ -7,8 +7,7 @@ use crate::grpc::{
     ensure_token,
     notifications::{
         kuren_event::Event, ConnectionNotification, DmNotification, EmailNotification,
-        GroupNotification, PaymentNotification, PaymentRequestNotification, SubscribeRequest,
-        SubscriptionNotification, WalletRequestNotification,
+        GroupNotification, SubscribeRequest,
     },
     notifications_client, with_auth,
 };
@@ -173,11 +172,6 @@ pub async fn listen_group(only: Option<Vec<String>>, exclude: Option<Vec<String>
     Ok(())
 }
 
-/// Listen for payment notifications
-pub async fn listen_payment() -> Result<()> {
-    listen(Some(vec!["payment".to_string()]), None).await
-}
-
 /// Listen for email notifications with optional filtering
 pub async fn listen_email(only: Option<Vec<String>>, exclude: Option<Vec<String>>) -> Result<()> {
     let mut config = Config::load()?;
@@ -238,13 +232,9 @@ fn print_event(event: &Option<Event>) {
     match event {
         Some(Event::Dm(dm)) => print_dm(dm),
         Some(Event::Connection(conn)) => print_connection(conn),
-        Some(Event::Payment(payment)) => print_payment(payment),
         Some(Event::Group(group)) => print_group(group),
         Some(Event::Email(email)) => print_email(email),
-        Some(Event::PaymentRequest(pr)) => print_payment_request(pr),
-        Some(Event::Subscription(sub)) => print_subscription(sub),
-        Some(Event::WalletRequest(wr)) => print_wallet_request(wr),
-        None => {}
+        _ => {}
     }
 }
 
@@ -284,26 +274,6 @@ fn print_connection(conn: &ConnectionNotification) {
         _ => {
             println!("[Connection] {} - {}", name, conn.r#type);
         }
-    }
-}
-
-fn print_payment(payment: &PaymentNotification) {
-    let name = if payment.from_name.is_empty() {
-        format!("@{}", payment.from_handle)
-    } else {
-        format!("{} (@{})", payment.from_name, payment.from_handle)
-    };
-
-    // Convert micro-units to USDC
-    let usdc = payment.usdc_amount as f64 / 1_000_000.0;
-
-    if payment.memo.is_empty() {
-        println!("[Payment] {} sent you ${:.2} USDC", name, usdc);
-    } else {
-        println!(
-            "[Payment] {} sent you ${:.2} USDC: \"{}\"",
-            name, usdc, payment.memo
-        );
     }
 }
 
@@ -380,137 +350,3 @@ fn print_email(email: &EmailNotification) {
     }
 }
 
-fn print_payment_request(pr: &PaymentRequestNotification) {
-    let usdc = pr.usdc_amount as f64 / 1_000_000.0;
-
-    let product_info = if pr.product_name.is_empty() {
-        String::new()
-    } else {
-        format!(" for \"{}\"", pr.product_name)
-    };
-
-    let sub_info = if pr.is_subscription {
-        format!(" (subscription: {})", pr.billing_interval)
-    } else {
-        String::new()
-    };
-
-    println!(
-        "[Payment Request] {} requests ${:.2} USDC{}{}",
-        pr.merchant_name, usdc, product_info, sub_info
-    );
-    println!("  Expires: {}", pr.expires_at);
-    println!("  Use 'kuren payments pending' to view and respond.");
-}
-
-fn print_subscription(sub: &SubscriptionNotification) {
-    let usdc = sub.usdc_amount as f64 / 1_000_000.0;
-    let refund = sub.refund_amount as f64 / 1_000_000.0;
-
-    match sub.r#type.as_str() {
-        "charged" => {
-            println!(
-                "[Subscription] {} charged ${:.2} USDC for \"{}\"",
-                sub.merchant_name, usdc, sub.product_name
-            );
-            if !sub.next_billing_at.is_empty() {
-                println!("  Next billing: {}", sub.next_billing_at);
-            }
-        }
-        "failed" => {
-            println!(
-                "[Subscription] Payment failed for \"{}\" from {}",
-                sub.product_name, sub.merchant_name
-            );
-            if !sub.failure_reason.is_empty() {
-                println!("  Reason: {}", sub.failure_reason);
-            }
-        }
-        "canceled" => {
-            println!(
-                "[Subscription] \"{}\" from {} has been canceled",
-                sub.product_name, sub.merchant_name
-            );
-            if refund > 0.0 {
-                println!("  Refunded: ${:.2} USDC", refund);
-            }
-        }
-        "refunded" => {
-            println!(
-                "[Subscription] Refund of ${:.2} USDC from {} for \"{}\"",
-                refund, sub.merchant_name, sub.product_name
-            );
-        }
-        "trial_ending" => {
-            println!(
-                "[Subscription] Trial ending soon for \"{}\" from {}",
-                sub.product_name, sub.merchant_name
-            );
-            println!("  First charge: ${:.2} USDC", usdc);
-        }
-        "trial_ended" => {
-            println!(
-                "[Subscription] Trial ended for \"{}\" from {}",
-                sub.product_name, sub.merchant_name
-            );
-        }
-        _ => {
-            println!(
-                "[Subscription] {} - {} ({})",
-                sub.merchant_name, sub.product_name, sub.r#type
-            );
-        }
-    }
-}
-
-fn print_wallet_request(wr: &WalletRequestNotification) {
-    let name = if wr.from_name.is_empty() {
-        format!("@{}", wr.from_handle)
-    } else {
-        format!("{} (@{})", wr.from_name, wr.from_handle)
-    };
-
-    let usdc = wr.usdc_amount as f64 / 1_000_000.0;
-
-    match wr.r#type.as_str() {
-        "requested" => {
-            if wr.memo.is_empty() {
-                println!(
-                    "[Wallet Request] {} requests ${:.2} USDC from you",
-                    name, usdc
-                );
-            } else {
-                println!(
-                    "[Wallet Request] {} requests ${:.2} USDC from you: \"{}\"",
-                    name, usdc, wr.memo
-                );
-            }
-            println!("  Expires: {}", wr.expires_at);
-            println!("  Use 'kuren pay request list' to view and respond.");
-        }
-        "approved" => {
-            println!(
-                "[Wallet Request] {} approved your request for ${:.2} USDC",
-                name, usdc
-            );
-        }
-        "denied" => {
-            println!(
-                "[Wallet Request] {} denied your request for ${:.2} USDC",
-                name, usdc
-            );
-        }
-        "expired" => {
-            println!(
-                "[Wallet Request] Your request to {} for ${:.2} USDC has expired",
-                name, usdc
-            );
-        }
-        _ => {
-            println!(
-                "[Wallet Request] {} - {} ${:.2} USDC",
-                name, wr.r#type, usdc
-            );
-        }
-    }
-}

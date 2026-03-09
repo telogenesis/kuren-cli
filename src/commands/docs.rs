@@ -105,7 +105,7 @@ pub async fn keys() -> Result<()> {
     println!();
     println!("If you lose your private key:");
     println!("  • Create a new account with a different handle");
-    println!("  • Previous wallet balance will be inaccessible");
+    println!("  • Previous account data will be inaccessible");
     println!("  • Notify your connections of the handle change");
     println!();
 

@@ -8,11 +8,11 @@ mod keys;
 
 #[derive(Parser)]
 #[command(name = "kuren")]
-#[command(about = "Kuren - Identity, Communication & Payments Platform")]
-#[command(long_about = "Kuren - Identity, Communication & Payments Platform\n\n\
+#[command(about = "Kuren - Identity & Communication Platform")]
+#[command(long_about = "Kuren - Identity & Communication Platform\n\n\
     Agents use cryptographic identities (Ed25519 keypairs) instead of passwords.\n\
     Your keypair is stored locally and proves your identity to the platform.\n\n\
-    Platform capabilities: Email, Messaging (DMs/Groups), USDC Payments, Social Connections")]
+    Platform capabilities: Email, Messaging (DMs/Groups), Social Connections")]
 #[command(after_help = "GETTING STARTED:\n  \
     1. kuren auth signup <handle>  - Create your identity\n  \
     2. kuren auth login            - Authenticate\n  \
@@ -46,18 +46,6 @@ enum Commands {
     #[command(subcommand)]
     Notes(NotesCommands),
 
-    /// Manage your wallets
-    #[command(subcommand)]
-    Wallet(WalletCommands),
-
-    /// Send money, request payments, and settle IOUs
-    #[command(subcommand)]
-    Pay(PayCommands),
-
-    /// Commerce payments (merchant subscriptions, payment requests)
-    #[command(subcommand)]
-    Payments(PaymentsCommands),
-
     /// Email commands
     #[command(subcommand)]
     Email(EmailCommands),
@@ -75,7 +63,7 @@ enum Commands {
 
     /// Listen for all notifications
     Listen {
-        /// Only listen for specific categories (dm, connection, group, payment)
+        /// Only listen for specific categories (dm, connection, group, email)
         #[arg(long, value_delimiter = ',')]
         only: Option<Vec<String>>,
 
@@ -129,252 +117,6 @@ enum AuthCommands {
     Authorize {
         /// The user code displayed by the third-party app (e.g., "ABC-1234")
         user_code: String,
-    },
-}
-
-#[derive(Subcommand)]
-enum WalletCommands {
-    /// List all your wallets
-    List,
-
-    /// Create a new wallet
-    Create {
-        /// Wallet provider: "cdp" or "kuren"
-        provider: String,
-
-        /// Optional display name
-        #[arg(short, long)]
-        name: Option<String>,
-
-        /// Network (CDP only): "devnet" or "mainnet"
-        #[arg(long, default_value = "devnet")]
-        network: String,
-    },
-
-    /// Set a wallet as your default
-    Default {
-        /// Wallet ID to set as default
-        wallet_id: String,
-    },
-
-    /// Check your USDC balance
-    Balance {
-        /// Specific wallet to check (uses default if not set)
-        #[arg(short, long)]
-        wallet: Option<String>,
-    },
-
-    /// Withdraw USDC from your CDP wallet to an external Solana address
-    Withdraw {
-        /// Destination Solana address
-        address: String,
-        /// Amount in USDC
-        amount: f64,
-        /// Optional memo
-        #[arg(short, long)]
-        memo: Option<String>,
-        /// Specific CDP wallet (uses default if not set)
-        #[arg(short, long)]
-        wallet: Option<String>,
-    },
-
-    /// Wallet member management
-    #[command(subcommand)]
-    Members(WalletMemberCommands),
-}
-
-#[derive(Subcommand)]
-enum WalletMemberCommands {
-    /// Add a member to a wallet
-    Add {
-        /// Wallet ID
-        wallet_id: String,
-
-        /// Handle of agent to add
-        handle: String,
-
-        /// Permission level: "spend" or "read"
-        #[arg(short, long, default_value = "read")]
-        permission: String,
-    },
-
-    /// Remove a member from a wallet
-    Remove {
-        /// Wallet ID
-        wallet_id: String,
-
-        /// Handle of agent to remove
-        handle: String,
-    },
-}
-
-#[derive(Subcommand)]
-enum PayCommands {
-    /// Send USDC to another user
-    Send {
-        /// Recipient handle (e.g., "@recipient")
-        handle: String,
-
-        /// Amount of USDC to send
-        amount: f64,
-
-        /// Optional memo for the transaction
-        #[arg(short, long)]
-        memo: Option<String>,
-
-        /// Specific wallet to send from (uses default if not set)
-        #[arg(short, long)]
-        wallet: Option<String>,
-    },
-
-    /// Payment request commands (request money from others)
-    #[command(subcommand)]
-    Request(PayRequestCommands),
-
-    /// IOU settlement commands
-    #[command(subcommand)]
-    Settle(PaySettleCommands),
-
-    /// View transaction history
-    History {
-        /// Maximum number of transactions to show
-        #[arg(short, long)]
-        limit: Option<u32>,
-
-        /// Specific wallet to show history for (all wallets if not set)
-        #[arg(short, long)]
-        wallet: Option<String>,
-    },
-
-    /// Listen for payment notifications
-    Listen,
-}
-
-#[derive(Subcommand)]
-enum PayRequestCommands {
-    /// Create a new payment request
-    New {
-        /// Handle of user to request from (e.g., "@friend")
-        handle: String,
-
-        /// Amount of USDC to request
-        amount: f64,
-
-        /// Optional reason for the request
-        #[arg(short = 'M', long)]
-        memo: Option<String>,
-
-        /// Specific wallet to receive into (uses default if not set)
-        #[arg(short, long)]
-        wallet: Option<String>,
-    },
-
-    /// List pending payment requests
-    List {
-        /// Show requests you've sent instead of received
-        #[arg(long)]
-        sent: bool,
-
-        /// Maximum number of requests to show
-        #[arg(short, long)]
-        limit: Option<u32>,
-    },
-
-    /// Approve an incoming payment request (pay the requester)
-    Approve {
-        /// Request ID
-        id: String,
-    },
-
-    /// Deny an incoming payment request
-    Deny {
-        /// Request ID
-        id: String,
-    },
-}
-
-#[derive(Subcommand)]
-enum PaySettleCommands {
-    /// Submit a settlement confirmation for a Kuren IOU transaction
-    Confirm {
-        /// Transaction ID of the IOU to confirm settlement for
-        transaction_id: String,
-
-        /// How settlement was done (e.g., "paid via Venmo")
-        #[arg(short, long)]
-        memo: Option<String>,
-    },
-
-    /// Respond to a settlement confirmation request
-    Respond {
-        /// Confirmation request ID
-        confirmation_id: String,
-
-        /// Reject instead of confirm
-        #[arg(long)]
-        reject: bool,
-    },
-
-    /// List pending settlement confirmation requests
-    List {
-        /// Maximum number to show
-        #[arg(short, long)]
-        limit: Option<u32>,
-    },
-}
-
-#[derive(Subcommand)]
-enum PaymentsCommands {
-    /// List pending payment requests from merchants
-    Pending,
-
-    /// Approve a payment request
-    Approve {
-        /// Payment request ID
-        id: String,
-    },
-
-    /// Deny a payment request
-    Deny {
-        /// Payment request ID
-        id: String,
-    },
-
-    /// Subscription commands
-    #[command(subcommand)]
-    Subscriptions(SubscriptionCommands),
-
-    /// View purchase history
-    History {
-        /// Maximum number of entries to show
-        #[arg(short, long)]
-        limit: Option<u32>,
-    },
-}
-
-#[derive(Subcommand)]
-enum SubscriptionCommands {
-    /// List your active subscriptions
-    List {
-        /// Filter by status (active, trialing, past_due, canceled)
-        #[arg(short, long)]
-        status: Option<String>,
-    },
-
-    /// View subscription details
-    Info {
-        /// Subscription ID
-        id: String,
-    },
-
-    /// Cancel a subscription
-    Cancel {
-        /// Subscription ID
-        id: String,
-
-        /// Cancel immediately and get a refund (default: cancel at period end)
-        #[arg(long)]
-        immediate: bool,
     },
 }
 
@@ -1036,92 +778,6 @@ async fn main() -> Result<()> {
             NotesCommands::Rm { id } => commands::notes::delete(id).await,
             NotesCommands::List { limit } => commands::notes::list(limit).await,
             NotesCommands::Search { query, limit } => commands::notes::search(query, limit).await,
-        },
-
-        // Wallet commands
-        Commands::Wallet(cmd) => match cmd {
-            WalletCommands::List => commands::wallet::list().await,
-            WalletCommands::Create {
-                provider,
-                name,
-                network,
-            } => commands::wallet::create(provider, name, network).await,
-            WalletCommands::Default { wallet_id } => {
-                commands::wallet::set_default(wallet_id).await
-            }
-            WalletCommands::Balance { wallet } => commands::wallet::balance(wallet).await,
-            WalletCommands::Withdraw { address, amount, memo, wallet } => {
-                commands::wallet::withdraw(address, amount, memo, wallet).await
-            }
-            WalletCommands::Members(member_cmd) => match member_cmd {
-                WalletMemberCommands::Add {
-                    wallet_id,
-                    handle,
-                    permission,
-                } => commands::wallet::member_add(wallet_id, handle, permission).await,
-                WalletMemberCommands::Remove { wallet_id, handle } => {
-                    commands::wallet::member_remove(wallet_id, handle).await
-                }
-            },
-        },
-
-        // Pay commands (money movement)
-        Commands::Pay(cmd) => match cmd {
-            PayCommands::Send {
-                handle,
-                amount,
-                memo,
-                wallet,
-            } => commands::pay::send(handle, amount, memo, wallet).await,
-            PayCommands::Request(req_cmd) => match req_cmd {
-                PayRequestCommands::New {
-                    handle,
-                    amount,
-                    memo,
-                    wallet,
-                } => commands::pay::request(handle, amount, memo, wallet).await,
-                PayRequestCommands::List { sent, limit } => {
-                    commands::pay::requests(sent, limit).await
-                }
-                PayRequestCommands::Approve { id } => commands::pay::approve(id).await,
-                PayRequestCommands::Deny { id } => commands::pay::deny(id).await,
-            },
-            PayCommands::Settle(settle_cmd) => match settle_cmd {
-                PaySettleCommands::Confirm {
-                    transaction_id,
-                    memo,
-                } => commands::pay::confirm(transaction_id, memo).await,
-                PaySettleCommands::Respond {
-                    confirmation_id,
-                    reject,
-                } => commands::pay::settle(confirmation_id, reject).await,
-                PaySettleCommands::List { limit } => {
-                    commands::pay::settlements(limit).await
-                }
-            },
-            PayCommands::History { limit, wallet } => {
-                commands::pay::history(limit, wallet).await
-            }
-            PayCommands::Listen => commands::listen::listen_payment().await,
-        },
-
-        // Payments commands (merchant subscriptions)
-        Commands::Payments(cmd) => match cmd {
-            PaymentsCommands::Pending => commands::payments::pending().await,
-            PaymentsCommands::Approve { id } => commands::payments::approve(id).await,
-            PaymentsCommands::Deny { id } => commands::payments::deny(id).await,
-            PaymentsCommands::Subscriptions(sub_cmd) => match sub_cmd {
-                SubscriptionCommands::List { status } => {
-                    commands::payments::subscriptions(status).await
-                }
-                SubscriptionCommands::Info { id } => {
-                    commands::payments::subscription_info(id).await
-                }
-                SubscriptionCommands::Cancel { id, immediate } => {
-                    commands::payments::cancel_subscription(id, immediate).await
-                }
-            },
-            PaymentsCommands::History { limit } => commands::payments::history(limit).await,
         },
 
         // Email commands

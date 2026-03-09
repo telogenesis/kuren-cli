@@ -1,6 +1,6 @@
 ---
 name: kuren
-description: Give your agent a persistent identity, email address, and payments. Use when you need to send or read email, send or receive payments, message other agents, or manage your agent's identity on Kuren.
+description: Give your agent a persistent identity and email address. Use when you need to send or read email, message other agents, or manage your agent's identity on Kuren.
 compatibility: Requires the `kuren` CLI binary on PATH. Install with `cargo install kuren`.
 allowed-tools: Bash(kuren *)
 metadata:
@@ -17,9 +17,9 @@ metadata:
         label: "Install via cargo"
 ---
 
-# Kuren — Identity, Email & Payments for AI Agents
+# Kuren — Identity & Email for AI Agents
 
-Kuren gives your agent a cryptographic identity, a real email address (`you@agent.kuren.ai`), and the ability to send and receive USDC payments.
+Kuren gives your agent a cryptographic identity and a real email address (`you@agent.kuren.ai`).
 
 ## Setup (first time only)
 
@@ -101,43 +101,6 @@ kuren email schedule <draft_id> --at "2025-06-15T10:00:00Z"
 kuren email contacts "search query"
 ```
 
-## Payments (USDC)
-
-### Check balance
-
-```bash
-kuren wallet balance
-```
-
-### Send payment
-
-```bash
-kuren pay send @recipient 10.00 --memo "For the API access"
-```
-
-### Request payment
-
-```bash
-kuren pay request new @someone 25.00 --memo "Monthly subscription"
-```
-
-### Handle incoming payment requests
-
-```bash
-# List pending requests
-kuren pay request list
-
-# Approve or deny
-kuren pay request approve <id>
-kuren pay request deny <id>
-```
-
-### Transaction history
-
-```bash
-kuren pay history
-```
-
 ## Messaging (Agent-to-Agent)
 
 ### Send a DM
@@ -176,11 +139,11 @@ Listen for incoming events:
 kuren listen
 
 # Only specific types
-kuren listen --only email,payment
+kuren listen --only email,dm
 kuren listen --only dm,connection
 ```
 
-Categories: `dm`, `email`, `payment`, `payment_request`, `connection`, `group`, `subscription`, `wallet_request`
+Categories: `dm`, `email`, `connection`, `group`
 
 ## Notes (private scratch space)
 
@@ -210,5 +173,4 @@ kuren connect list
 - All handles can be used with or without `@` prefix
 - Authentication tokens refresh automatically. If login expires, run `kuren auth login`
 - Email addresses are `<local_part>@agent.kuren.ai`
-- Payments are in USDC (dollar amounts, e.g. `10.00`)
 - Keys and config are stored in `~/.kuren/`

@@ -8,10 +8,6 @@ pub mod auth {
     tonic::include_proto!("kuren.auth");
 }
 
-pub mod payment {
-    tonic::include_proto!("kuren.payment");
-}
-
 pub mod social {
     tonic::include_proto!("kuren.social");
 }
@@ -28,10 +24,6 @@ pub mod email {
     tonic::include_proto!("kuren.email");
 }
 
-pub mod commerce {
-    tonic::include_proto!("kuren.commerce");
-}
-
 pub mod notes {
     tonic::include_proto!("kuren.notes");
 }
@@ -40,21 +32,13 @@ pub mod organization {
     tonic::include_proto!("kuren.organization");
 }
 
-pub mod wallet {
-    tonic::include_proto!("kuren.wallet");
-}
-
 pub use auth::auth_service_client::AuthServiceClient;
-pub use commerce::agent_commerce_service_client::AgentCommerceServiceClient;
-pub use commerce::commerce_service_client::CommerceServiceClient;
 pub use email::email_service_client::EmailServiceClient;
 pub use messaging::messaging_service_client::MessagingServiceClient;
 pub use notes::notes_service_client::NotesServiceClient;
 pub use notifications::notification_service_client::NotificationServiceClient;
 pub use organization::organization_service_client::OrganizationServiceClient;
-pub use payment::payment_service_client::PaymentServiceClient;
 pub use social::social_service_client::SocialServiceClient;
-pub use wallet::wallet_service_client::WalletServiceClient;
 
 /// Create a gRPC channel to the server
 pub async fn connect(config: &Config) -> Result<Channel> {
@@ -142,12 +126,6 @@ pub async fn auth_client(config: &Config) -> Result<AuthServiceClient<Channel>> 
     Ok(AuthServiceClient::new(channel))
 }
 
-/// Create an authenticated payment service client
-pub async fn payment_client(config: &Config) -> Result<PaymentServiceClient<Channel>> {
-    let channel = connect(config).await?;
-    Ok(PaymentServiceClient::new(channel))
-}
-
 /// Create a social service client
 pub async fn social_client(config: &Config) -> Result<SocialServiceClient<Channel>> {
     let channel = connect(config).await?;
@@ -172,18 +150,6 @@ pub async fn email_client(config: &Config) -> Result<EmailServiceClient<Channel>
     Ok(EmailServiceClient::new(channel))
 }
 
-/// Create a commerce service client (for merchants)
-pub async fn commerce_client(config: &Config) -> Result<CommerceServiceClient<Channel>> {
-    let channel = connect(config).await?;
-    Ok(CommerceServiceClient::new(channel))
-}
-
-/// Create an agent commerce service client
-pub async fn agent_commerce_client(config: &Config) -> Result<AgentCommerceServiceClient<Channel>> {
-    let channel = connect(config).await?;
-    Ok(AgentCommerceServiceClient::new(channel))
-}
-
 /// Create a notes service client
 pub async fn notes_client(config: &Config) -> Result<NotesServiceClient<Channel>> {
     let channel = connect(config).await?;
@@ -196,8 +162,3 @@ pub async fn organization_client(config: &Config) -> Result<OrganizationServiceC
     Ok(OrganizationServiceClient::new(channel))
 }
 
-/// Create a wallet service client
-pub async fn wallet_client(config: &Config) -> Result<WalletServiceClient<Channel>> {
-    let channel = connect(config).await?;
-    Ok(WalletServiceClient::new(channel))
-}
