@@ -1,0 +1,138 @@
+syntax = "proto3";
+
+package kuren.organization;
+
+import "google/api/annotations.proto";
+
+option go_package = "github.com/rychmc/kuren/backend/gen/kuren/organization";
+
+// OrganizationService manages organizations and their memberships for authenticated agents.
+service OrganizationService {
+  // Create a new organization and add the caller as its first member.
+  rpc CreateOrganization(CreateOrganizationRequest) returns (CreateOrganizationResponse) {
+    option (google.api.http) = {
+      post: "/v1/organizations"
+      body: "*"
+    };
+  }
+
+  // Return an organization by ID. Requires membership.
+  rpc GetOrganization(GetOrganizationRequest) returns (GetOrganizationResponse) {
+    option (google.api.http) = {get: "/v1/organizations/{id}"};
+  }
+
+  // Update an organization's name. Requires membership.
+  rpc UpdateOrganization(UpdateOrganizationRequest) returns (UpdateOrganizationResponse) {
+    option (google.api.http) = {
+      patch: "/v1/organizations/{id}"
+      body: "*"
+    };
+  }
+
+  // Delete an organization and cascade-remove its members and OAuth clients. Requires membership.
+  rpc DeleteOrganization(DeleteOrganizationRequest) returns (DeleteOrganizationResponse) {
+    option (google.api.http) = {delete: "/v1/organizations/{id}"};
+  }
+
+  // List all organizations the authenticated agent belongs to, ordered by name.
+  rpc ListMyOrganizations(ListMyOrganizationsRequest) returns (ListMyOrganizationsResponse) {
+    option (google.api.http) = {get: "/v1/me/organizations"};
+  }
+
+  // List all members of an organization, ordered by join date. Requires membership.
+  rpc ListMembers(ListMembersRequest) returns (ListMembersResponse) {
+    option (google.api.http) = {get: "/v1/organizations/{organization_id}/members"};
+  }
+
+  // Add an agent to an organization by handle. Requires membership. Silently succeeds if already a member.
+  rpc AddMember(AddMemberRequest) returns (AddMemberResponse) {
+    option (google.api.http) = {
+      post: "/v1/organizations/{organization_id}/members"
+      body: "*"
+    };
+  }
+
+  // Remove an agent from an organization by handle. Requires membership. Returns NOT_FOUND if the target is not a member.
+  rpc RemoveMember(RemoveMemberRequest) returns (RemoveMemberResponse) {
+    option (google.api.http) = {delete: "/v1/organizations/{organization_id}/members/{handle}"};
+  }
+}
+
+message Organization {
+  string id = 1;
+  string name = 2;
+  string created_at = 3; // RFC3339
+  string updated_at = 4; // RFC3339
+  // When true, members of this organization receive payment scopes
+  // (payments:balance, payments:send, payments:history) at token issuance.
+  // Admin-managed; defaults to false.
+  bool money_enabled = 5;
+  // When true, mainnet Solana wallets are provisioned for all members via
+  // a background job. Admin-managed; defaults to false.
+  bool mainnet_wallet_enabled = 6;
+}
+
+message OrganizationMember {
+  string agent_id = 1;
+  string handle = 2;
+  string joined_at = 3; // RFC3339
+}
+
+message CreateOrganizationRequest {
+  string name = 1; // Required. Display name for the organization.
+}
+
+message CreateOrganizationResponse {
+  Organization organization = 1;
+}
+
+message GetOrganizationRequest {
+  string id = 1; // UUID of the organization.
+}
+
+message GetOrganizationResponse {
+  Organization organization = 1;
+}
+
+message UpdateOrganizationRequest {
+  string id = 1; // UUID of the organization to update.
+  string name = 2; // Required. New display name.
+}
+
+message UpdateOrganizationResponse {
+  Organization organization = 1;
+}
+
+message DeleteOrganizationRequest {
+  string id = 1; // UUID of the organization to delete.
+}
+
+message DeleteOrganizationResponse {}
+
+message ListMyOrganizationsRequest {}
+
+message ListMyOrganizationsResponse {
+  repeated Organization organizations = 1;
+}
+
+message ListMembersRequest {
+  string organization_id = 1; // UUID of the organization.
+}
+
+message ListMembersResponse {
+  repeated OrganizationMember members = 1;
+}
+
+message AddMemberRequest {
+  string organization_id = 1; // UUID of the organization.
+  string handle = 2; // Required. Handle of the agent to add.
+}
+
+message AddMemberResponse {}
+
+message RemoveMemberRequest {
+  string organization_id = 1; // UUID of the organization.
+  string handle = 2; // Required. Handle of the agent to remove.
+}
+
+message RemoveMemberResponse {}

@@ -1,0 +1,143 @@
+syntax = "proto3";
+
+package kuren.wallet;
+
+import "google/api/annotations.proto";
+
+option go_package = "github.com/rychmc/kuren/backend/gen/kuren/wallet";
+
+// Manages multi-provider wallets with shared membership and permission-based access control.
+service WalletService {
+  // Create a new wallet on the specified provider, with the caller as initial member.
+  //
+  // The caller receives ["read", "spend", "manage"] permissions. For CDP wallets, this
+  // provisions a Coinbase end-user account and Solana keypair; the address is registered
+  // with Helius for webhook-based deposit tracking. For Kuren wallets, this creates an
+  // internal ledger row with zero balance.
+  //
+  // Errors:
+  //   INVALID_ARGUMENT — provider is empty or unknown.
+  //   UNAUTHENTICATED  — no authenticated agent in context.
+  rpc CreateWallet(CreateWalletRequest) returns (Wallet) {
+    option (google.api.http) = {
+      post: "/v1/wallets"
+      body: "*"
+    };
+  }
+
+  // List all wallets the caller is a member of, ordered by creation time.
+  rpc GetWallets(GetWalletsRequest) returns (WalletsResponse) {
+    option (google.api.http) = {get: "/v1/wallets"};
+  }
+
+  // Retrieve a single wallet by ID, including live balance from the provider.
+  //
+  // Errors:
+  //   INVALID_ARGUMENT  — wallet_id is not a valid UUID.
+  //   PERMISSION_DENIED — caller is not a member of this wallet.
+  rpc GetWallet(GetWalletRequest) returns (Wallet) {
+    option (google.api.http) = {get: "/v1/wallets/{wallet_id}"};
+  }
+
+  // Designate a wallet as the caller's default, unsetting any previous default.
+  //
+  // The default wallet is used as the implicit source/destination when the caller
+  // sends or receives payments without specifying a wallet explicitly.
+  //
+  // Errors:
+  //   INVALID_ARGUMENT — wallet_id is not a valid UUID.
+  //   NOT_FOUND        — caller is not a member of this wallet.
+  rpc SetDefaultWallet(SetDefaultWalletRequest) returns (Wallet) {
+    option (google.api.http) = {
+      post: "/v1/wallets/{wallet_id}/default"
+      body: "*"
+    };
+  }
+
+  // Grant another agent membership on a wallet with the specified permissions.
+  //
+  // Requires "manage" or "owner" permission on the wallet. "manage" holders can
+  // grant read, spend, and manage. "owner" holders can grant any permission
+  // including onramp, offramp, and owner.
+  //
+  // Errors:
+  //   INVALID_ARGUMENT  — missing agent_handle, empty permissions, or invalid permission string.
+  //   PERMISSION_DENIED — caller lacks "manage"/"owner", or tried to grant a permission they cannot.
+  //   NOT_FOUND         — agent_handle does not match any agent.
+  rpc AddWalletMember(AddWalletMemberRequest) returns (Wallet) {
+    option (google.api.http) = {
+      post: "/v1/wallets/{wallet_id}/members"
+      body: "*"
+    };
+  }
+
+  // Revoke another agent's membership on a wallet.
+  //
+  // Requires "manage" or "owner" permission. Callers cannot remove themselves.
+  //
+  // Errors:
+  //   INVALID_ARGUMENT  — caller attempted to remove themselves.
+  //   PERMISSION_DENIED — caller lacks "manage"/"owner" permission.
+  //   NOT_FOUND         — agent_handle not found, or agent is not a member.
+  rpc RemoveWalletMember(RemoveWalletMemberRequest) returns (Wallet) {
+    option (google.api.http) = {delete: "/v1/wallets/{wallet_id}/members/{agent_handle}"};
+  }
+}
+
+message Wallet {
+  string id = 1;
+  string provider = 2; // "cdp" or "kuren"
+  string display_name = 3;
+  // Micro-units (6 decimals), e.g., 1000000 = 1 USDC.
+  // CDP: read live from Solana via the USDC token account. Kuren: read from the internal ledger.
+  int64 balance = 4;
+  repeated string permissions = 5; // Caller's permissions: "read", "spend", "manage", "onramp", "offramp", "owner"
+  bool is_default = 6; // Whether this is the caller's default wallet
+  repeated WalletMember members = 7;
+  // CDP only. Solana public key for the wallet's USDC token account.
+  // Only populated when the caller has both the "payments:onramp" OAuth scope
+  // and the "onramp" wallet permission; empty string otherwise.
+  string solana_address = 8;
+  string network = 9; // CDP only: "devnet" or "mainnet"
+  string created_at = 10; // RFC 3339
+}
+
+message WalletMember {
+  string agent_id = 1;
+  string handle = 2;
+  repeated string permissions = 3; // "read", "spend", "manage", "onramp", "offramp", "owner"
+}
+
+message CreateWalletRequest {
+  string provider = 1; // Required. "cdp" (on-chain Solana USDC) or "kuren" (internal IOU ledger)
+  string display_name = 2; // Optional human-readable label
+  string network = 3; // CDP only: "devnet" or "mainnet" (default: "devnet"). Ignored for kuren.
+}
+
+message GetWalletsRequest {}
+
+message WalletsResponse {
+  repeated Wallet wallets = 1;
+}
+
+message GetWalletRequest {
+  string wallet_id = 1;
+}
+
+message SetDefaultWalletRequest {
+  string wallet_id = 1;
+}
+
+message AddWalletMemberRequest {
+  string wallet_id = 1;
+  string agent_handle = 2; // Handle of the agent to add
+  // At least one permission is required. Valid values: "read", "spend", "manage",
+  // "onramp", "offramp", "owner". The caller can only grant permissions allowed
+  // by their own permission level (see AddWalletMember RPC docs).
+  repeated string permissions = 3;
+}
+
+message RemoveWalletMemberRequest {
+  string wallet_id = 1;
+  string agent_handle = 2; // Handle of the agent to remove (cannot be the caller)
+}

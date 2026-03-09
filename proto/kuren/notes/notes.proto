@@ -1,0 +1,119 @@
+syntax = "proto3";
+
+package kuren.notes;
+
+import "google/api/annotations.proto";
+import "kuren/authz/authz.proto";
+
+option go_package = "github.com/rychmc/kuren/backend/gen/kuren/notes";
+
+// NotesService provides private note storage for the authenticated agent.
+service NotesService {
+  // CreateNote creates a new note with a required title and optional content (max 100KB).
+  rpc CreateNote(CreateNoteRequest) returns (Note) {
+    option (kuren.authz.authz) = {
+      scopes: ["notes:write"]
+    };
+    option (google.api.http) = {
+      post: "/v1/notes"
+      body: "*"
+    };
+  }
+
+  // GetNote returns a specific note owned by the authenticated agent.
+  rpc GetNote(GetNoteRequest) returns (Note) {
+    option (kuren.authz.authz) = {
+      scopes: ["notes:read"]
+    };
+    option (google.api.http) = {get: "/v1/notes/{id}"};
+  }
+
+  // UpdateNote patches a note's title and/or content; omitted fields are left unchanged.
+  rpc UpdateNote(UpdateNoteRequest) returns (Note) {
+    option (kuren.authz.authz) = {
+      scopes: ["notes:write"]
+    };
+    option (google.api.http) = {
+      patch: "/v1/notes/{id}"
+      body: "*"
+    };
+  }
+
+  // DeleteNote permanently deletes a note owned by the authenticated agent.
+  rpc DeleteNote(DeleteNoteRequest) returns (DeleteNoteResponse) {
+    option (kuren.authz.authz) = {
+      scopes: ["notes:write"]
+    };
+    option (google.api.http) = {delete: "/v1/notes/{id}"};
+  }
+
+  // ListNotes returns note summaries for the authenticated agent, ordered by created_at descending.
+  rpc ListNotes(ListNotesRequest) returns (ListNotesResponse) {
+    option (kuren.authz.authz) = {
+      scopes: ["notes:read"]
+    };
+    option (google.api.http) = {get: "/v1/notes"};
+  }
+
+  // SearchNotes performs full-text search across the authenticated agent's notes, ranked by relevance.
+  rpc SearchNotes(SearchNotesRequest) returns (ListNotesResponse) {
+    option (kuren.authz.authz) = {
+      scopes: ["notes:read"]
+    };
+    option (google.api.http) = {get: "/v1/notes/search"};
+  }
+}
+
+message Note {
+  string id = 1;
+  string title = 2;
+  string content = 3;
+  string created_at = 4; // RFC3339
+  string updated_at = 5; // RFC3339
+}
+
+// NoteSummary is the lightweight representation returned by List and Search.
+message NoteSummary {
+  string id = 1;
+  string title = 2;
+  string snippet = 3; // First 150 characters of content
+  string created_at = 4; // RFC3339
+  string updated_at = 5; // RFC3339
+}
+
+message CreateNoteRequest {
+  string title = 1;
+  string content = 2; // Max 100KB
+}
+
+message GetNoteRequest {
+  string id = 1;
+}
+
+message UpdateNoteRequest {
+  string id = 1;
+  optional string title = 2; // Must be non-empty if provided
+  optional string content = 3; // Max 100KB
+}
+
+message DeleteNoteRequest {
+  string id = 1;
+}
+
+message DeleteNoteResponse {}
+
+message ListNotesRequest {
+  int32 limit = 1; // Default 50, max 100
+  string cursor = 2; // Note ID from a previous response's next_cursor
+}
+
+message SearchNotesRequest {
+  string query = 1; // PostgreSQL websearch_to_tsquery syntax
+  int32 limit = 2; // Default 50, max 100
+}
+
+message ListNotesResponse {
+  repeated NoteSummary notes = 1;
+  // Empty when there are no more results.
+  string next_cursor = 2;
+}

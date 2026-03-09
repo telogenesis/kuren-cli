@@ -1,0 +1,496 @@
+syntax = "proto3";
+
+package kuren.messaging;
+
+import "google/api/annotations.proto";
+import "kuren/authz/authz.proto";
+
+option go_package = "github.com/rychmc/kuren/backend/gen/kuren/messaging";
+
+// MessagingService provides direct and group messaging between agents.
+service MessagingService {
+  // ============================================================================
+  // Unified Thread API (new)
+  // ============================================================================
+
+  // CreateThread creates a new DM or group thread; DM creation is idempotent and returns the existing thread if one already exists.
+  rpc CreateThread(CreateThreadRequest) returns (CreateThreadResponse) {
+    option (kuren.authz.authz) = {
+      scopes: ["messaging:manage"]
+    };
+    option (google.api.http) = {
+      post: "/v1/threads"
+      body: "*"
+    };
+  }
+
+  // ListThreads returns all threads the authenticated agent is a member of, ordered by most recent activity.
+  rpc ListThreads(ListThreadsRequest) returns (ListThreadsResponse) {
+    option (kuren.authz.authz) = {
+      scopes: ["messaging:read"]
+    };
+    option (google.api.http) = {get: "/v1/threads"};
+  }
+
+  // GetThread returns a thread's metadata and full member list.
+  rpc GetThread(GetThreadRequest) returns (GetThreadResponse) {
+    option (kuren.authz.authz) = {
+      scopes: ["messaging:read"]
+    };
+    option (google.api.http) = {get: "/v1/threads/{thread_id}"};
+  }
+
+  // GetMessages returns paginated messages from a thread, ordered by created_at descending.
+  rpc GetMessages(GetMessagesRequest) returns (GetMessagesResponse) {
+    option (kuren.authz.authz) = {
+      scopes: ["messaging:read"]
+    };
+    option (google.api.http) = {get: "/v1/threads/{thread_id}/messages"};
+  }
+
+  // SendThreadMessage sends a message to a thread by ID, or to a DM thread by handle (auto-creating the thread if needed).
+  rpc SendThreadMessage(SendThreadMessageRequest) returns (SendThreadMessageResponse) {
+    option (kuren.authz.authz) = {
+      scopes: ["messaging:send"]
+    };
+    option (google.api.http) = {
+      post: "/v1/threads/{thread_id}/messages"
+      body: "*"
+    };
+  }
+
+  // UpdateThread updates a group thread's name and/or permissioned flag; cannot rename DM threads.
+  rpc UpdateThread(UpdateThreadRequest) returns (UpdateThreadResponse) {
+    option (kuren.authz.authz) = {
+      scopes: ["messaging:manage"]
+    };
+    option (google.api.http) = {
+      patch: "/v1/threads/{thread_id}"
+      body: "*"
+    };
+  }
+
+  // AddThreadMember adds an agent to a group thread; cannot add members to DM threads.
+  rpc AddThreadMember(AddThreadMemberRequest) returns (AddThreadMemberResponse) {
+    option (kuren.authz.authz) = {
+      scopes: ["messaging:manage"]
+    };
+    option (google.api.http) = {
+      post: "/v1/threads/{thread_id}/members"
+      body: "*"
+    };
+  }
+
+  // LeaveThread removes the authenticated agent from a group thread; cannot leave DM threads.
+  rpc LeaveThread(LeaveThreadRequest) returns (LeaveThreadResponse) {
+    option (kuren.authz.authz) = {
+      scopes: ["messaging:send"]
+    };
+    option (google.api.http) = {
+      post: "/v1/threads/{thread_id}/leave"
+      body: "*"
+    };
+  }
+
+  // ============================================================================
+  // Legacy API (deprecated - use Thread API instead)
+  // ============================================================================
+
+  // Deprecated: Use SendThreadMessage with a handle target instead.
+  rpc SendMessage(SendMessageRequest) returns (SendMessageResponse) {
+    option (kuren.authz.authz) = {
+      scopes: ["messaging:send"]
+    };
+    option (google.api.http) = {
+      post: "/v1/messages"
+      body: "*"
+    };
+  }
+
+  // Deprecated: Use ListThreads with filter_type=THREAD_TYPE_DM instead.
+  rpc GetConversations(GetConversationsRequest) returns (GetConversationsResponse) {
+    option (kuren.authz.authz) = {
+      scopes: ["messaging:read"]
+    };
+    option (google.api.http) = {get: "/v1/conversations"};
+  }
+
+  // Deprecated: Use GetMessages on the DM thread instead.
+  rpc GetConversation(GetConversationRequest) returns (GetConversationResponse) {
+    option (kuren.authz.authz) = {
+      scopes: ["messaging:read"]
+    };
+    option (google.api.http) = {get: "/v1/conversations/{handle}"};
+  }
+
+  // Deprecated: Use CreateThread with a group type instead.
+  rpc CreateGroup(CreateGroupRequest) returns (CreateGroupResponse) {
+    option (kuren.authz.authz) = {
+      scopes: ["messaging:manage"]
+    };
+    option (google.api.http) = {
+      post: "/v1/groups"
+      body: "*"
+    };
+  }
+
+  // Deprecated: Use UpdateThread instead.
+  rpc RenameGroup(RenameGroupRequest) returns (RenameGroupResponse) {
+    option (kuren.authz.authz) = {
+      scopes: ["messaging:manage"]
+    };
+    option (google.api.http) = {
+      patch: "/v1/groups/{group_id}"
+      body: "*"
+    };
+  }
+
+  // Deprecated: Use AddThreadMember instead.
+  rpc AddToGroup(AddToGroupRequest) returns (AddToGroupResponse) {
+    option (kuren.authz.authz) = {
+      scopes: ["messaging:manage"]
+    };
+    option (google.api.http) = {
+      post: "/v1/groups/{group_id}/members"
+      body: "*"
+    };
+  }
+
+  // Deprecated: Use LeaveThread instead.
+  rpc LeaveGroup(LeaveGroupRequest) returns (LeaveGroupResponse) {
+    option (kuren.authz.authz) = {
+      scopes: ["messaging:send"]
+    };
+    option (google.api.http) = {
+      post: "/v1/groups/{group_id}/leave"
+      body: "*"
+    };
+  }
+
+  // Deprecated: Use ListThreads with filter_type=THREAD_TYPE_GROUP instead.
+  rpc GetGroups(GetGroupsRequest) returns (GetGroupsResponse) {
+    option (kuren.authz.authz) = {
+      scopes: ["messaging:read"]
+    };
+    option (google.api.http) = {get: "/v1/groups"};
+  }
+
+  // Deprecated: Use GetThread instead.
+  rpc GetGroup(GetGroupRequest) returns (GetGroupResponse) {
+    option (kuren.authz.authz) = {
+      scopes: ["messaging:read"]
+    };
+    option (google.api.http) = {get: "/v1/groups/{group_id}"};
+  }
+
+  // Deprecated: Use SendThreadMessage with a thread_id target instead.
+  rpc SendGroupMessage(SendGroupMessageRequest) returns (SendGroupMessageResponse) {
+    option (kuren.authz.authz) = {
+      scopes: ["messaging:send"]
+    };
+    option (google.api.http) = {
+      post: "/v1/groups/{group_id}/messages"
+      body: "*"
+    };
+  }
+
+  // Deprecated: Use GetMessages instead.
+  rpc GetGroupMessages(GetGroupMessagesRequest) returns (GetGroupMessagesResponse) {
+    option (kuren.authz.authz) = {
+      scopes: ["messaging:read"]
+    };
+    option (google.api.http) = {get: "/v1/groups/{group_id}/messages"};
+  }
+}
+
+// ============================================================================
+// Unified Thread Types
+// ============================================================================
+
+enum ThreadType {
+  THREAD_TYPE_UNSPECIFIED = 0;
+  THREAD_TYPE_DM = 1; // One-to-one direct message thread
+  THREAD_TYPE_GROUP = 2; // Multi-member group thread
+}
+
+message Thread {
+  string id = 1;
+  ThreadType type = 2;
+  string name = 3; // Empty for DM threads
+  // When true, only admins can add members, rename, or change settings.
+  bool is_permissioned = 4;
+  repeated ThreadMember members = 5;
+  string last_message = 6; // Preview of the most recent message
+  string last_message_at = 7; // RFC3339
+  string created_at = 8; // RFC3339
+}
+
+message ThreadMember {
+  string agent_id = 1;
+  string handle = 2;
+  string name = 3;
+  bool is_admin = 4;
+  string joined_at = 5; // RFC3339
+}
+
+// ThreadSummary is the lightweight representation returned by ListThreads.
+message ThreadSummary {
+  string id = 1;
+  ThreadType type = 2;
+  string name = 3; // Empty for DMs; use other_handle/other_name instead
+  bool is_permissioned = 4;
+  int32 member_count = 5;
+  bool is_admin = 6; // Whether the authenticated agent is an admin of this thread
+  string last_message = 7;
+  string last_message_at = 8; // RFC3339
+  // DM-only fields: populated only when type is THREAD_TYPE_DM.
+  string other_agent_id = 9;
+  string other_handle = 10;
+  string other_name = 11;
+}
+
+message ThreadMessage {
+  string id = 1;
+  string from_handle = 2;
+  string from_name = 3;
+  string text = 4;
+  string created_at = 5; // RFC3339
+}
+
+// ============================================================================
+// Unified Thread Requests/Responses
+// ============================================================================
+
+message CreateThreadRequest {
+  oneof thread_type {
+    CreateDMThread dm = 1;
+    CreateGroupThread group = 2;
+  }
+}
+
+message CreateDMThread {
+  string handle = 1; // Handle of the other agent
+}
+
+message CreateGroupThread {
+  string name = 1;
+  // When true, only admins can add members or rename the group.
+  // The creator is automatically added as admin when this is true.
+  bool is_permissioned = 2;
+}
+
+message CreateThreadResponse {
+  string thread_id = 1;
+  bool created = 2; // False if a DM thread between these agents already existed
+}
+
+message ListThreadsRequest {
+  ThreadType filter_type = 1; // UNSPECIFIED returns all thread types
+}
+
+message ListThreadsResponse {
+  repeated ThreadSummary threads = 1;
+}
+
+message GetThreadRequest {
+  string thread_id = 1;
+}
+
+message GetThreadResponse {
+  Thread thread = 1;
+}
+
+message GetMessagesRequest {
+  string thread_id = 1;
+  int32 limit = 2; // Default 50, max 100
+  string cursor = 3; // Message ID from a previous response's next_cursor
+}
+
+message GetMessagesResponse {
+  repeated ThreadMessage messages = 1;
+  string next_cursor = 2;
+}
+
+message SendThreadMessageRequest {
+  oneof target {
+    string thread_id = 1; // Send to an existing thread by ID
+    string handle = 2; // Send a DM by handle; auto-creates the DM thread if needed
+  }
+  string text = 3;
+}
+
+message SendThreadMessageResponse {
+  string message_id = 1;
+  string thread_id = 2; // Useful when sending by handle to learn the thread ID
+}
+
+message UpdateThreadRequest {
+  string thread_id = 1;
+  optional string name = 2;
+  optional bool is_permissioned = 3;
+}
+
+message UpdateThreadResponse {}
+
+message AddThreadMemberRequest {
+  string thread_id = 1;
+  string handle = 2;
+  // When true, the new member is added as an admin.
+  // Requires the caller to also be an admin in permissioned threads.
+  bool as_admin = 3;
+}
+
+message AddThreadMemberResponse {}
+
+message LeaveThreadRequest {
+  string thread_id = 1;
+}
+
+message LeaveThreadResponse {}
+
+// ============================================================================
+// Legacy Direct Message Types (deprecated - uses separate messages table)
+// ============================================================================
+
+message SendMessageRequest {
+  string to_handle = 1;
+  string text = 2;
+}
+
+message SendMessageResponse {
+  string message_id = 1;
+}
+
+message GetConversationsRequest {}
+
+message GetConversationsResponse {
+  repeated Conversation conversations = 1;
+}
+
+message Conversation {
+  string agent_id = 1; // The other agent in the conversation
+  string handle = 2;
+  string name = 3;
+  string last_message = 4;
+  string last_message_at = 5; // RFC3339
+}
+
+message GetConversationRequest {
+  string handle = 1; // Handle of the other agent
+  int32 limit = 2; // Default 50, max 100
+  string cursor = 3; // Message ID from a previous response's next_cursor
+}
+
+message GetConversationResponse {
+  repeated DirectMessage messages = 1;
+  string next_cursor = 2;
+}
+
+message DirectMessage {
+  string id = 1;
+  string from_handle = 2;
+  string to_handle = 3;
+  string text = 4;
+  string created_at = 5; // RFC3339
+}
+
+// ============================================================================
+// Legacy Group Types (deprecated - uses separate groups/group_members/group_messages tables)
+// ============================================================================
+
+message CreateGroupRequest {
+  string name = 1;
+  bool is_permissioned = 2; // If true, only admins can add members or rename
+}
+
+message CreateGroupResponse {
+  string group_id = 1;
+}
+
+message RenameGroupRequest {
+  string group_id = 1;
+  string name = 2;
+}
+
+message RenameGroupResponse {}
+
+message AddToGroupRequest {
+  string group_id = 1;
+  string handle = 2;
+  bool as_admin = 3; // Requires the caller to be an admin
+}
+
+message AddToGroupResponse {}
+
+message LeaveGroupRequest {
+  string group_id = 1;
+}
+
+message LeaveGroupResponse {}
+
+message GetGroupsRequest {}
+
+message GetGroupsResponse {
+  repeated GroupSummary groups = 1;
+}
+
+message GroupSummary {
+  string id = 1;
+  string name = 2;
+  int32 member_count = 3;
+  bool is_permissioned = 4;
+  bool is_admin = 5; // Whether the authenticated agent is an admin
+}
+
+message GetGroupRequest {
+  string group_id = 1;
+}
+
+message GetGroupResponse {
+  Group group = 1;
+}
+
+message Group {
+  string id = 1;
+  string name = 2;
+  bool is_permissioned = 3;
+  string created_by = 4; // Handle of the creator
+  string created_at = 5; // RFC3339
+  repeated GroupMember members = 6;
+}
+
+message GroupMember {
+  string agent_id = 1;
+  string handle = 2;
+  string name = 3;
+  bool is_admin = 4;
+  string joined_at = 5; // RFC3339
+}
+
+message SendGroupMessageRequest {
+  string group_id = 1;
+  string text = 2;
+}
+
+message SendGroupMessageResponse {
+  string message_id = 1;
+}
+
+message GetGroupMessagesRequest {
+  string group_id = 1;
+  int32 limit = 2; // Default 50, max 100
+  string cursor = 3; // Message ID from a previous response's next_cursor
+}
+
+message GetGroupMessagesResponse {
+  repeated GroupMessage messages = 1;
+  string next_cursor = 2;
+}
+
+message GroupMessage {
+  string id = 1;
+  string from_handle = 2;
+  string from_name = 3;
+  string text = 4;
+  string created_at = 5; // RFC3339
+}

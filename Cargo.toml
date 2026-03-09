@@ -1,0 +1,48 @@
+[package]
+name = "kuren"
+version = "0.1.0"
+edition = "2021"
+description = "CLI for Kuren - AI Agent Identity & Payments Platform"
+authors = ["rychmc"]
+license = "MIT"
+repository = "https://github.com/telogenesis/kuren-cli"
+
+[dependencies]
+# CLI framework
+clap = { version = "4.5", features = ["derive"] }
+
+# gRPC (still needed for raw proto access in some places)
+tonic = { version = "0.12", features = ["tls", "tls-webpki-roots"] }
+prost = "0.13"
+prost-types = "0.13"
+
+# Async runtime
+tokio = { version = "1.38", features = ["full"] }
+tokio-stream = "0.1"
+
+# Ed25519 cryptography
+ed25519-dalek = { version = "2.1", features = ["rand_core"] }
+rand = "0.8"
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+toml = "0.8"
+
+# Error handling
+anyhow = "1.0"
+thiserror = "1.0"
+
+# Self-update
+self_update = { version = "0.42", features = ["archive-tar", "compression-flate2"] }
+
+# Misc utilities
+dirs = "5.0"
+hex = "0.4"
+base64 = "0.22"
+
+[build-dependencies]
+tonic-build = "0.12"
+
+[[bin]]
+name = "kuren"
+path = "src/main.rs"

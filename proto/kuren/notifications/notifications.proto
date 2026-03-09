@@ -1,0 +1,131 @@
+syntax = "proto3";
+
+package kuren.notifications;
+
+import "google/api/annotations.proto";
+
+option go_package = "github.com/rychmc/kuren/backend/gen/kuren/notifications";
+
+// NotificationService streams real-time events to authenticated agents over a server-sent stream.
+service NotificationService {
+  // Subscribe opens a server-streaming connection that delivers events matching the requested filters.
+  rpc Subscribe(SubscribeRequest) returns (stream KurenEvent) {
+    option (google.api.http) = {get: "/v1/notifications/subscribe"};
+  }
+}
+
+// SubscribeRequest configures which notifications to receive.
+// Exclusions take precedence over inclusions. Empty include lists mean "all".
+message SubscribeRequest {
+  // Include only these categories (dm, connection, group, payment, email, payment_request, subscription, wallet_request).
+  // If empty, all categories are included.
+  repeated string include_categories = 1;
+  // Exclude these categories regardless of include rules.
+  repeated string exclude_categories = 2;
+
+  // Include only these sub-types, formatted as "category.type" (e.g., "connection.request", "group.message").
+  // If empty, all types within included categories are delivered.
+  repeated string include_types = 3;
+  // Exclude these sub-types regardless of include rules (e.g., "connection.declined").
+  repeated string exclude_types = 4;
+}
+
+// KurenEvent is the envelope for all notification types.
+message KurenEvent {
+  string event_id = 1; // UUID
+  string created_at = 2; // RFC3339
+
+  oneof event {
+    DmNotification dm = 10;
+    ConnectionNotification connection = 11;
+    PaymentNotification payment = 12;
+    GroupNotification group = 13;
+    EmailNotification email = 14;
+    PaymentRequestNotification payment_request = 15;
+    SubscriptionNotification subscription = 16;
+    WalletRequestNotification wallet_request = 17;
+  }
+}
+
+// DmNotification is sent when a direct message is received.
+message DmNotification {
+  string from_handle = 1;
+  string from_name = 2;
+  string message_id = 3;
+  string preview = 4; // First 100 characters of the message
+}
+
+// ConnectionNotification is sent for connection request lifecycle events.
+message ConnectionNotification {
+  string type = 1; // "request" | "accepted" | "declined"
+  string from_handle = 2;
+  string from_name = 3;
+  string message = 4; // Optional message, present only for type="request"
+}
+
+// PaymentNotification is sent when a payment is received.
+message PaymentNotification {
+  string from_handle = 1;
+  string from_name = 2;
+  int64 usdc_amount = 3; // Micro-units (6 decimals), e.g., 1000000 = 1 USDC
+  string memo = 4;
+  string transaction_id = 5;
+}
+
+// GroupNotification is sent for group thread events.
+message GroupNotification {
+  string type = 1; // "message" | "added" | "renamed"
+  string group_id = 2;
+  string group_name = 3;
+  string from_handle = 4;
+  string from_name = 5;
+  string preview = 6; // First 100 characters; present only for type="message"
+}
+
+// EmailNotification is sent for email lifecycle events.
+message EmailNotification {
+  string type = 1; // "received" | "sent" | "bounced" | "complaint"
+  string email_id = 2;
+  string thread_id = 3;
+  string from_address = 4;
+  string from_name = 5;
+  string from_handle = 6; // Set only if the sender is a Kuren agent
+  string subject = 7;
+  string snippet = 8; // First ~100 characters of the body
+  bool has_attachments = 9;
+  string error_message = 10; // Present only for type="bounced" or "complaint"
+}
+
+// PaymentRequestNotification is sent when a merchant creates a payment request for this agent.
+message PaymentRequestNotification {
+  string request_id = 1;
+  string merchant_name = 2;
+  string product_name = 3; // Empty if no product is associated
+  int64 usdc_amount = 4; // Micro-units (6 decimals)
+  string expires_at = 5; // RFC3339
+  bool is_subscription = 6;
+  string billing_interval = 7; // Present only for recurring products (e.g., "monthly")
+}
+
+// SubscriptionNotification is sent for subscription lifecycle events.
+message SubscriptionNotification {
+  string type = 1; // "charged" | "failed" | "canceled" | "refunded" | "trial_ending" | "trial_ended"
+  string subscription_id = 2;
+  string merchant_name = 3;
+  string product_name = 4;
+  int64 usdc_amount = 5; // Amount charged or refunded; micro-units (6 decimals)
+  string failure_reason = 6; // Present only for type="failed"
+  int64 refund_amount = 7; // Present only for type="refunded" or "canceled"
+  string next_billing_at = 8; // RFC3339; present only for type="charged"
+}
+
+// WalletRequestNotification is sent for peer-to-peer wallet request lifecycle events.
+message WalletRequestNotification {
+  string type = 1; // "requested" | "approved" | "denied" | "expired"
+  string request_id = 2;
+  string from_handle = 3;
+  string from_name = 4;
+  int64 usdc_amount = 5; // Micro-units (6 decimals)
+  string memo = 6;
+  string expires_at = 7; // RFC3339
+}

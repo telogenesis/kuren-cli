@@ -1,0 +1,20 @@
+syntax = "proto3";
+
+package kuren.authz;
+
+import "google/protobuf/descriptor.proto";
+
+option go_package = "github.com/rychmc/kuren/backend/gen/kuren/authz";
+
+extend google.protobuf.MethodOptions {
+  AuthzRule authz = 50000;
+}
+
+// AuthzRule defines the authorization requirements for a gRPC method.
+// Methods with no authz annotation require a valid JWT but no specific scope.
+message AuthzRule {
+  // Required OAuth scopes. All listed scopes must be present in the JWT.
+  repeated string scopes = 1;
+  // If true, the method requires no authentication.
+  bool public = 2;
+}

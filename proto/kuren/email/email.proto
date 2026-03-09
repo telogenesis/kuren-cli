@@ -1,0 +1,707 @@
+syntax = "proto3";
+
+package kuren.email;
+
+import "google/api/annotations.proto";
+import "kuren/authz/authz.proto";
+
+option go_package = "github.com/rychmc/kuren/backend/gen/kuren/email";
+
+// EmailService provides full-featured email inbox management for agents on the @agent.kuren.ai domain.
+service EmailService {
+  // Compose and send an email immediately via SES using the agent's primary address.
+  rpc SendEmail(SendEmailRequest) returns (SendEmailResponse) {
+    option (kuren.authz.authz) = {
+      scopes: ["email:send"]
+    };
+    option (google.api.http) = {
+      post: "/v1/email/send"
+      body: "*"
+    };
+  }
+
+  // Create a new draft email in the drafts folder without sending it.
+  rpc SaveDraft(SaveDraftRequest) returns (SaveDraftResponse) {
+    option (kuren.authz.authz) = {
+      scopes: ["email:send"]
+    };
+    option (google.api.http) = {
+      post: "/v1/email/drafts"
+      body: "*"
+    };
+  }
+
+  // Update the recipients, subject, or body of an existing draft.
+  rpc UpdateDraft(UpdateDraftRequest) returns (UpdateDraftResponse) {
+    option (kuren.authz.authz) = {
+      scopes: ["email:send"]
+    };
+    option (google.api.http) = {
+      patch: "/v1/email/drafts/{draft_id}"
+      body: "*"
+    };
+  }
+
+  // Finalize a draft and send it immediately, moving it from drafts to sent.
+  rpc SendDraft(SendDraftRequest) returns (SendDraftResponse) {
+    option (kuren.authz.authz) = {
+      scopes: ["email:send"]
+    };
+    option (google.api.http) = {
+      post: "/v1/email/drafts/{draft_id}/send"
+      body: "*"
+    };
+  }
+
+  // Schedule a draft for future sending via a background job (Faktory).
+  rpc ScheduleEmail(ScheduleEmailRequest) returns (ScheduleEmailResponse) {
+    option (kuren.authz.authz) = {
+      scopes: ["email:send"]
+    };
+    option (google.api.http) = {
+      post: "/v1/email/scheduled"
+      body: "*"
+    };
+  }
+
+  // List all pending scheduled emails ordered by scheduled time ascending.
+  rpc ListScheduledEmails(ListScheduledEmailsRequest) returns (ListScheduledEmailsResponse) {
+    option (kuren.authz.authz) = {
+      scopes: ["email:read"]
+    };
+    option (google.api.http) = {get: "/v1/email/scheduled"};
+  }
+
+  // Cancel a scheduled email and move it back to the drafts folder.
+  rpc CancelScheduledEmail(CancelScheduledEmailRequest) returns (CancelScheduledEmailResponse) {
+    option (kuren.authz.authz) = {
+      scopes: ["email:send"]
+    };
+    option (google.api.http) = {
+      post: "/v1/email/scheduled/{email_id}/cancel"
+      body: "*"
+    };
+  }
+
+  // Reschedule a pending scheduled email to a different future time.
+  rpc UpdateScheduledTime(UpdateScheduledTimeRequest) returns (UpdateScheduledTimeResponse) {
+    option (kuren.authz.authz) = {
+      scopes: ["email:send"]
+    };
+    option (google.api.http) = {
+      patch: "/v1/email/scheduled/{email_id}"
+      body: "*"
+    };
+  }
+
+  // List email summaries in a folder with optional unread/starred filters.
+  rpc ListEmails(ListEmailsRequest) returns (ListEmailsResponse) {
+    option (kuren.authz.authz) = {
+      scopes: ["email:read"]
+    };
+    option (google.api.http) = {get: "/v1/email/messages"};
+  }
+
+  // Retrieve a single email with full body content and attachments.
+  rpc GetEmail(GetEmailRequest) returns (GetEmailResponse) {
+    option (kuren.authz.authz) = {
+      scopes: ["email:read"]
+    };
+    option (google.api.http) = {get: "/v1/email/messages/{email_id}"};
+  }
+
+  // Retrieve all emails in a conversation thread ordered chronologically.
+  rpc GetThread(GetThreadRequest) returns (GetThreadResponse) {
+    option (kuren.authz.authz) = {
+      scopes: ["email:read"]
+    };
+    option (google.api.http) = {get: "/v1/email/threads/{thread_id}"};
+  }
+
+  // Move one or more emails to a different folder by folder name.
+  rpc MoveEmails(MoveEmailsRequest) returns (MoveEmailsResponse) {
+    option (kuren.authz.authz) = {
+      scopes: ["email:manage"]
+    };
+    option (google.api.http) = {
+      post: "/v1/email/messages/move"
+      body: "*"
+    };
+  }
+
+  // Toggle the read/unread status of one or more emails.
+  rpc MarkRead(MarkReadRequest) returns (MarkReadResponse) {
+    option (kuren.authz.authz) = {
+      scopes: ["email:manage"]
+    };
+    option (google.api.http) = {
+      post: "/v1/email/messages/read"
+      body: "*"
+    };
+  }
+
+  // Toggle the starred status of one or more emails.
+  rpc StarEmails(StarEmailsRequest) returns (StarEmailsResponse) {
+    option (kuren.authz.authz) = {
+      scopes: ["email:manage"]
+    };
+    option (google.api.http) = {
+      post: "/v1/email/messages/star"
+      body: "*"
+    };
+  }
+
+  // Delete emails by moving them to trash, or permanently if requested.
+  rpc DeleteEmails(DeleteEmailsRequest) returns (DeleteEmailsResponse) {
+    option (kuren.authz.authz) = {
+      scopes: ["email:manage"]
+    };
+    option (google.api.http) = {
+      post: "/v1/email/messages/delete"
+      body: "*"
+    };
+  }
+
+  // List all folders (system and custom) with unread and total message counts.
+  rpc ListFolders(ListFoldersRequest) returns (ListFoldersResponse) {
+    option (kuren.authz.authz) = {
+      scopes: ["email:folders"]
+    };
+    option (google.api.http) = {get: "/v1/email/folders"};
+  }
+
+  // Create a custom folder for organizing emails.
+  rpc CreateFolder(CreateFolderRequest) returns (CreateFolderResponse) {
+    option (kuren.authz.authz) = {
+      scopes: ["email:folders"]
+    };
+    option (google.api.http) = {
+      post: "/v1/email/folders"
+      body: "*"
+    };
+  }
+
+  // Rename a custom folder (system folders cannot be renamed).
+  rpc RenameFolder(RenameFolderRequest) returns (RenameFolderResponse) {
+    option (kuren.authz.authz) = {
+      scopes: ["email:folders"]
+    };
+    option (google.api.http) = {
+      patch: "/v1/email/folders/{folder_id}"
+      body: "*"
+    };
+  }
+
+  // Delete a custom folder, moving its messages to trash (system folders cannot be deleted).
+  rpc DeleteFolder(DeleteFolderRequest) returns (DeleteFolderResponse) {
+    option (kuren.authz.authz) = {
+      scopes: ["email:folders"]
+    };
+    option (google.api.http) = {delete: "/v1/email/folders/{folder_id}"};
+  }
+
+  // Generate a pre-signed S3 download URL for an email attachment.
+  rpc GetAttachmentUrl(GetAttachmentUrlRequest) returns (GetAttachmentUrlResponse) {
+    option (kuren.authz.authz) = {
+      scopes: ["email:read"]
+    };
+    option (google.api.http) = {get: "/v1/email/attachments/{attachment_id}/url"};
+  }
+
+  // Generate a pre-signed S3 upload URL for attaching a file to an outbound email.
+  rpc GetUploadUrl(GetUploadUrlRequest) returns (GetUploadUrlResponse) {
+    option (kuren.authz.authz) = {
+      scopes: ["email:send"]
+    };
+    option (google.api.http) = {
+      post: "/v1/email/attachments/upload"
+      body: "*"
+    };
+  }
+
+  // List all claimed email addresses for the authenticated agent.
+  rpc GetEmailAddresses(GetEmailAddressesRequest) returns (GetEmailAddressesResponse) {
+    option (kuren.authz.authz) = {
+      scopes: ["email:address"]
+    };
+    option (google.api.http) = {get: "/v1/email/addresses"};
+  }
+
+  // Claim a new @agent.kuren.ai email address, rejecting reserved names.
+  rpc ClaimEmailAddress(ClaimEmailAddressRequest) returns (ClaimEmailAddressResponse) {
+    option (kuren.authz.authz) = {
+      scopes: ["email:address"]
+    };
+    option (google.api.http) = {
+      post: "/v1/email/addresses"
+      body: "*"
+    };
+  }
+
+  // Designate one of the agent's addresses as the primary sending address.
+  rpc SetPrimaryEmailAddress(SetPrimaryEmailAddressRequest) returns (SetPrimaryEmailAddressResponse) {
+    option (kuren.authz.authz) = {
+      scopes: ["email:address"]
+    };
+    option (google.api.http) = {
+      post: "/v1/email/addresses/{address_id}/primary"
+      body: "*"
+    };
+  }
+
+  // Release a claimed email address, making it available for others.
+  rpc ReleaseEmailAddress(ReleaseEmailAddressRequest) returns (ReleaseEmailAddressResponse) {
+    option (kuren.authz.authz) = {
+      scopes: ["email:address"]
+    };
+    option (google.api.http) = {delete: "/v1/email/addresses/{address_id}"};
+  }
+
+  // Search the agent's auto-populated contact book by email or display name.
+  rpc GetContacts(GetContactsRequest) returns (GetContactsResponse) {
+    option (kuren.authz.authz) = {
+      scopes: ["email:read"]
+    };
+    option (google.api.http) = {get: "/v1/email/contacts"};
+  }
+
+  // Process a raw inbound email stored in S3 by SES, delivering it to all @agent.kuren.ai recipients.
+  // Called by Lambda; authenticity is verified by fetching directly from S3 (only SES can write to the inbound/ prefix).
+  rpc ProcessInboundEmail(ProcessInboundEmailRequest) returns (ProcessInboundEmailResponse) {
+    option (kuren.authz.authz) = {public: true};
+    option (google.api.http) = {
+      post: "/v1/internal/email/inbound"
+      body: "*"
+    };
+  }
+
+  // Record an SES bounce or complaint notification and log it for deliverability tracking.
+  // Called by Lambda via SNS subscription.
+  rpc HandleSESFeedback(HandleSESFeedbackRequest) returns (HandleSESFeedbackResponse) {
+    option (kuren.authz.authz) = {public: true};
+    option (google.api.http) = {
+      post: "/v1/internal/email/feedback"
+      body: "*"
+    };
+  }
+}
+
+// ============================================================================
+// Common Types
+// ============================================================================
+
+// EmailAddress identifies a sender or recipient, optionally linked to a Kuren agent.
+message EmailAddress {
+  string address = 1;
+  string name = 2;
+  string agent_id = 3; // Set if this is a Kuren agent
+  string handle = 4; // Set if this is a Kuren agent
+}
+
+// EmailSummary is a lightweight projection of an email used in list views.
+message EmailSummary {
+  string id = 1;
+  string thread_id = 2;
+  string folder_id = 3;
+  EmailAddress from = 4;
+  repeated EmailAddress to = 5;
+  string subject = 6;
+  string snippet = 7; // First ~150 chars of body_text
+  bool is_read = 8;
+  bool is_starred = 9;
+  bool has_attachments = 10;
+  int32 thread_message_count = 11;
+  string sent_at = 12; // RFC3339, set for outbound emails
+  string received_at = 13; // RFC3339, set for inbound emails
+  string scheduled_for = 14; // RFC3339, set if email is scheduled for future send
+}
+
+// Email is the full representation of a single email message.
+message Email {
+  string id = 1;
+  string thread_id = 2;
+  string folder_id = 3;
+  string direction = 4; // "inbound" or "outbound"
+  EmailAddress from = 5;
+  repeated EmailAddress to = 6;
+  repeated EmailAddress cc = 7;
+  repeated EmailAddress bcc = 8;
+  string subject = 9;
+  string body_text = 10;
+  string body_html = 11;
+  bool is_read = 12;
+  bool is_starred = 13;
+  bool is_draft = 14;
+  repeated Attachment attachments = 15;
+  string message_id = 16; // RFC 5322 Message-ID header
+  string in_reply_to = 17; // RFC 5322 In-Reply-To header, used for threading
+  string sent_at = 18; // RFC3339
+  string received_at = 19; // RFC3339
+  string scheduled_for = 20; // RFC3339, set if email is scheduled for future send
+}
+
+// Attachment describes a file attached to an email.
+// Use GetAttachmentUrl to obtain a download URL.
+message Attachment {
+  string id = 1;
+  string filename = 2;
+  string content_type = 3; // MIME type
+  int64 size_bytes = 4;
+  bool is_inline = 5; // True for inline/embedded images (Content-Disposition: inline)
+}
+
+// Folder represents a mailbox folder (e.g., inbox, sent, drafts, trash, or a custom folder).
+message Folder {
+  string id = 1;
+  string name = 2;
+  string folder_type = 3; // "system" (inbox/sent/drafts/trash) or "custom"
+  int32 unread_count = 4;
+  int32 total_count = 5;
+}
+
+// AgentEmailAddress represents a claimed @agent.kuren.ai address owned by an agent.
+message AgentEmailAddress {
+  string id = 1;
+  string local_part = 2; // The part before @agent.kuren.ai
+  string full_address = 3; // local_part@agent.kuren.ai
+  bool is_primary = 4; // Primary address is used as the From address when sending
+  string created_at = 5; // RFC3339
+}
+
+// Contact is an auto-populated address book entry, updated each time the agent sends to or receives from an address.
+message Contact {
+  string id = 1;
+  string email_address = 2;
+  string display_name = 3;
+  string agent_id = 4; // Set if linked to a Kuren agent
+  string handle = 5; // Set if linked to a Kuren agent
+  int32 contact_count = 6; // Number of interactions with this contact
+  string last_contacted_at = 7; // RFC3339
+}
+
+// ============================================================================
+// Send Operations
+// ============================================================================
+
+message SendEmailRequest {
+  repeated string to = 1; // At least one recipient required
+  repeated string cc = 2;
+  repeated string bcc = 3;
+  string subject = 4;
+  string body_text = 5;
+  string body_html = 6;
+  // RFC 5322 Message-ID of the email being replied to.
+  // When set, the server threads this reply with the original email's conversation.
+  string in_reply_to = 7;
+  // IDs returned by GetUploadUrl, referencing files already uploaded to S3.
+  repeated string attachment_ids = 8;
+}
+
+message SendEmailResponse {
+  string message_id = 1; // Internal message ID (UUID)
+  string thread_id = 2;
+}
+
+message SaveDraftRequest {
+  // All fields are optional for drafts; an empty draft is valid.
+  repeated string to = 1;
+  repeated string cc = 2;
+  repeated string bcc = 3;
+  string subject = 4;
+  string body_text = 5;
+  string body_html = 6;
+  string in_reply_to = 7;
+  repeated string attachment_ids = 8;
+}
+
+message SaveDraftResponse {
+  string draft_id = 1;
+}
+
+// UpdateDraftRequest replaces all mutable fields on the draft.
+// Fields left empty will clear the existing value.
+message UpdateDraftRequest {
+  string draft_id = 1;
+  repeated string to = 2;
+  repeated string cc = 3;
+  repeated string bcc = 4;
+  string subject = 5;
+  string body_text = 6;
+  string body_html = 7;
+  string in_reply_to = 8;
+  repeated string attachment_ids = 9;
+}
+
+message UpdateDraftResponse {}
+
+message SendDraftRequest {
+  string draft_id = 1;
+}
+
+message SendDraftResponse {
+  string message_id = 1; // Internal message ID (UUID)
+  string thread_id = 2;
+}
+
+// ============================================================================
+// Scheduled Send Operations
+// ============================================================================
+
+message ScheduleEmailRequest {
+  string draft_id = 1; // Draft to schedule (required, must be an unsent draft)
+  // Must be at least 1 minute and at most 1 year in the future.
+  string scheduled_for = 2; // RFC3339
+}
+
+message ScheduleEmailResponse {
+  string email_id = 1;
+  string scheduled_for = 2; // RFC3339, confirmed scheduled time
+}
+
+message ListScheduledEmailsRequest {
+  int32 limit = 1; // Default 50, max 100
+  string cursor = 2; // Email ID for cursor-based pagination
+}
+
+message ListScheduledEmailsResponse {
+  repeated ScheduledEmailSummary emails = 1;
+  // Empty when there are no more results.
+  string next_cursor = 2;
+}
+
+message ScheduledEmailSummary {
+  string id = 1;
+  string thread_id = 2;
+  EmailAddress from = 3;
+  repeated EmailAddress to = 4;
+  string subject = 5;
+  string snippet = 6; // First ~100 chars of body_text
+  string scheduled_for = 7; // RFC3339
+  string created_at = 8; // RFC3339
+}
+
+message CancelScheduledEmailRequest {
+  string email_id = 1;
+}
+
+message CancelScheduledEmailResponse {
+  // The cancelled email is moved back to the drafts folder and can be edited or re-scheduled.
+  string draft_id = 1;
+}
+
+message UpdateScheduledTimeRequest {
+  string email_id = 1;
+  // Must be at least 1 minute and at most 1 year in the future.
+  string scheduled_for = 2; // RFC3339
+}
+
+message UpdateScheduledTimeResponse {
+  string scheduled_for = 1; // RFC3339, confirmed new time
+}
+
+// ============================================================================
+// Read Operations
+// ============================================================================
+
+message ListEmailsRequest {
+  string folder_name = 1; // Folder name (e.g., "inbox", "sent", "drafts", "trash"); defaults to "inbox"
+  int32 limit = 2; // Default 50, max 100
+  string cursor = 3; // Email ID for cursor-based pagination
+  bool unread_only = 4;
+  bool starred_only = 5;
+}
+
+message ListEmailsResponse {
+  repeated EmailSummary emails = 1;
+  string next_cursor = 2;
+  int32 unread_count = 3; // Total unread messages in the requested folder
+}
+
+message GetEmailRequest {
+  string email_id = 1;
+}
+
+message GetEmailResponse {
+  Email email = 1;
+}
+
+message GetThreadRequest {
+  string thread_id = 1;
+}
+
+message GetThreadResponse {
+  string subject = 1; // Thread subject from the original message
+  repeated Email emails = 2; // All messages in the thread, ordered chronologically (oldest first)
+}
+
+// ============================================================================
+// Manage Operations
+// ============================================================================
+
+message MoveEmailsRequest {
+  repeated string email_ids = 1;
+  string to_folder = 2; // Destination folder name (e.g., "inbox", "archive", or a custom folder name)
+}
+
+message MoveEmailsResponse {
+  int32 moved_count = 1;
+}
+
+message MarkReadRequest {
+  repeated string email_ids = 1;
+  bool is_read = 2; // True to mark as read, false to mark as unread
+}
+
+message MarkReadResponse {
+  int32 updated_count = 1;
+}
+
+message StarEmailsRequest {
+  repeated string email_ids = 1;
+  bool is_starred = 2; // True to star, false to unstar
+}
+
+message StarEmailsResponse {
+  int32 updated_count = 1;
+}
+
+message DeleteEmailsRequest {
+  repeated string email_ids = 1;
+  bool permanent = 2; // If true, permanently delete; otherwise move to trash
+}
+
+message DeleteEmailsResponse {
+  int32 deleted_count = 1;
+}
+
+// ============================================================================
+// Folder Operations
+// ============================================================================
+
+message ListFoldersRequest {}
+
+message ListFoldersResponse {
+  repeated Folder folders = 1; // Ordered by position (system folders first), then alphabetically
+}
+
+message CreateFolderRequest {
+  string name = 1; // Must be unique per agent; cannot duplicate a system folder name
+}
+
+message CreateFolderResponse {
+  string folder_id = 1;
+}
+
+message RenameFolderRequest {
+  string folder_id = 1;
+  string name = 2; // New folder name; must be unique per agent
+}
+
+message RenameFolderResponse {}
+
+message DeleteFolderRequest {
+  string folder_id = 1; // Must be a custom folder; system folders cannot be deleted
+}
+
+message DeleteFolderResponse {}
+
+// ============================================================================
+// Attachment Operations
+// ============================================================================
+
+message GetAttachmentUrlRequest {
+  string attachment_id = 1;
+}
+
+message GetAttachmentUrlResponse {
+  string download_url = 1; // Pre-signed S3 GET URL
+  int32 expires_in = 2; // Seconds until URL expires (currently 900)
+}
+
+message GetUploadUrlRequest {
+  string filename = 1;
+  string content_type = 2; // MIME type (e.g., "application/pdf")
+  int64 size_bytes = 3; // Must be > 0
+}
+
+message GetUploadUrlResponse {
+  string attachment_id = 1; // Reference this ID in SendEmailRequest.attachment_ids or SaveDraftRequest.attachment_ids
+  string upload_url = 2; // Pre-signed S3 PUT URL; upload the file with a PUT request
+  int32 expires_in = 3; // Seconds until URL expires (currently 900)
+}
+
+// ============================================================================
+// Address Management
+// ============================================================================
+
+message GetEmailAddressesRequest {}
+
+message GetEmailAddressesResponse {
+  repeated AgentEmailAddress addresses = 1;
+  string primary_address = 2; // Full primary address (local@agent.kuren.ai), empty if none set
+}
+
+message ClaimEmailAddressRequest {
+  // Local part to claim (e.g., "jane.doe" -> jane.doe@agent.kuren.ai).
+  // Normalized to lowercase. Rejected if reserved (RFC 2142 mailbox names,
+  // system names, platform names, protected identities, etc.).
+  string local_part = 1;
+  bool set_as_primary = 2; // If true, also set this as the primary sending address
+}
+
+message ClaimEmailAddressResponse {
+  string id = 1;
+  string full_address = 2; // The claimed address: local_part@agent.kuren.ai
+}
+
+message SetPrimaryEmailAddressRequest {
+  string address_id = 1;
+}
+
+message SetPrimaryEmailAddressResponse {}
+
+message ReleaseEmailAddressRequest {
+  string address_id = 1;
+}
+
+message ReleaseEmailAddressResponse {}
+
+// ============================================================================
+// Contacts
+// ============================================================================
+
+message GetContactsRequest {
+  string query = 1; // Case-insensitive substring match on email_address or display_name; omit to list all
+  int32 limit = 2; // Default 20, max 100
+}
+
+message GetContactsResponse {
+  repeated Contact contacts = 1; // Ordered by contact_count descending, then last_contacted_at descending
+}
+
+// ============================================================================
+// Internal: Inbound Email Processing
+// ============================================================================
+
+// ProcessInboundEmailRequest contains only the S3 location of the raw email.
+// The server fetches and parses the email from S3 to verify authenticity
+// (only SES can write to the inbound/ prefix via bucket policy).
+message ProcessInboundEmailRequest {
+  string s3_bucket = 1;
+  string s3_key = 2;
+  string ses_message_id = 3; // SES-assigned message ID from the receipt notification
+}
+
+message ProcessInboundEmailResponse {
+  int32 delivered_count = 1; // Number of @agent.kuren.ai recipients who received the email
+}
+
+message HandleSESFeedbackRequest {
+  string feedback_type = 1; // "bounce" or "complaint"
+  string ses_message_id = 2;
+  repeated string recipients = 3; // Recipient addresses that bounced or complained
+  string bounce_type = 4; // For bounces: "Permanent" or "Transient"
+  string error_message = 5;
+}
+
+message HandleSESFeedbackResponse {}

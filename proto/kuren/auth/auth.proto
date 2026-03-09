@@ -1,0 +1,220 @@
+syntax = "proto3";
+
+package kuren.auth;
+
+import "google/api/annotations.proto";
+import "kuren/authz/authz.proto";
+import "protoc-gen-openapiv2/options/annotations.proto";
+
+option go_package = "github.com/rychmc/kuren/backend/gen/kuren/auth";
+option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_swagger) = {
+  info: {
+    title: "Kuren API"
+    version: "1.0"
+    description: "Kuren is an identity and payments platform for AI agents. It provides authentication, wallets, messaging, email, commerce, and delegation services."
+    contact: {
+      name: "Kuren"
+      url: "https://kuren.ai"
+    }
+  }
+  security_definitions: {
+    security: {
+      key: "Bearer"
+      value: {
+        type: TYPE_API_KEY
+        in: IN_HEADER
+        name: "Authorization"
+        description: "JWT access token. Format: Bearer {token}"
+      }
+    }
+  }
+  security: {
+    security_requirement: {
+      key: "Bearer"
+      value: {}
+    }
+  }
+};
+
+// AuthService handles agent registration, Ed25519 challenge-response authentication,
+// token lifecycle, and OAuth 2.0 Device Authorization Grant for third-party clients.
+service AuthService {
+  // Register a new agent with a handle and Ed25519 public key.
+  // The handle must be 3-64 alphanumeric/underscore characters, must not be reserved,
+  // and neither handle nor public key can already be registered. A wallet is
+  // provisioned asynchronously via the onSignup hook (failure is non-fatal).
+  rpc Signup(SignupRequest) returns (SignupResponse) {
+    option (kuren.authz.authz) = {public: true};
+    option (google.api.http) = {
+      post: "/v1/auth/signup"
+      body: "*"
+    };
+  }
+
+  // Generate a 32-byte random nonce for the agent identified by public_key.
+  // The challenge expires after 5 minutes (configurable). The agent must exist;
+  // returns NOT_FOUND otherwise.
+  rpc RequestChallenge(ChallengeRequest) returns (ChallengeResponse) {
+    option (kuren.authz.authz) = {public: true};
+    option (google.api.http) = {
+      post: "/v1/auth/challenge"
+      body: "*"
+    };
+  }
+
+  // Verify an Ed25519 signature over a previously issued challenge and issue tokens.
+  // The challenge must not be expired or already used. On success, returns a JWT
+  // access token (default 15m) and an opaque refresh token (default 30d). Scopes
+  // are derived from the agent's organization membership (payments scopes are only
+  // granted when the agent belongs to an org with money enabled).
+  rpc VerifyChallenge(VerifyRequest) returns (TokenResponse) {
+    option (kuren.authz.authz) = {public: true};
+    option (google.api.http) = {
+      post: "/v1/auth/verify"
+      body: "*"
+    };
+  }
+
+  // Exchange a valid refresh token for a new access/refresh token pair.
+  // The old refresh token is revoked (single-use rotation). For third-party tokens,
+  // the associated OAuth client must still be active, unlocked, and not deleted.
+  // Scopes are re-derived at refresh time to reflect current org membership.
+  rpc RefreshToken(RefreshRequest) returns (TokenResponse) {
+    option (kuren.authz.authz) = {public: true};
+    option (google.api.http) = {
+      post: "/v1/auth/refresh"
+      body: "*"
+    };
+  }
+
+  // Start an OAuth 2.0 Device Authorization flow for a third-party client.
+  // Returns a device_code (secret, for polling) and a user_code (human-readable,
+  // for the agent to enter in the CLI). Requires a valid client_id and a PKCE
+  // code_challenge (S256). If scopes are omitted, the client's full allowed_scopes
+  // are used. The client must not be deleted, disabled, or admin-locked.
+  rpc StartDeviceAuth(DeviceAuthRequest) returns (DeviceAuthResponse) {
+    option (kuren.authz.authz) = {public: true};
+    option (google.api.http) = {
+      post: "/v1/auth/device"
+      body: "*"
+    };
+  }
+
+  // Poll for completion of a device authorization request.
+  // Returns UNAVAILABLE while the agent has not yet approved, DEADLINE_EXCEEDED if
+  // the device code expired, and PERMISSION_DENIED if the agent denied the request.
+  // On approval, verifies the PKCE code_verifier against the stored code_challenge,
+  // re-checks client state, issues scoped tokens, and records a delegation.
+  rpc PollDeviceAuth(PollDeviceAuthRequest) returns (TokenResponse) {
+    option (kuren.authz.authz) = {public: true};
+    option (google.api.http) = {
+      post: "/v1/auth/device/poll"
+      body: "*"
+    };
+  }
+
+  // Approve a pending device authorization request on behalf of the authenticated agent.
+  // Looks up the device code by user_code, verifies it is not expired or already
+  // processed, and checks client state. For clients in "test" status, only handles
+  // listed in the client's test_handles allowlist may approve. Returns the client
+  // name, granted scopes, and a warning if the client is in test mode.
+  rpc ApproveDeviceAuth(ApproveDeviceAuthRequest) returns (ApproveDeviceAuthResponse) {
+    option (google.api.http) = {
+      post: "/v1/auth/device/approve"
+      body: "*"
+    };
+  }
+
+  // Return the authenticated agent's profile (id, handle, public key, creation time).
+  rpc GetProfile(GetProfileRequest) returns (ProfileResponse) {
+    option (google.api.http) = {get: "/v1/auth/profile"};
+  }
+}
+
+// First-party auth messages
+
+message SignupRequest {
+  string handle = 1; // e.g., "rychmc" (without @); 3-64 alphanumeric or underscores
+  bytes public_key = 2; // Ed25519 public key, exactly 32 bytes
+}
+
+message SignupResponse {
+  string agent_id = 1;
+  string handle = 2;
+}
+
+message ChallengeRequest {
+  bytes public_key = 1; // Ed25519 public key of the agent requesting authentication
+}
+
+message ChallengeResponse {
+  string challenge_id = 1;
+  bytes challenge = 2; // 32-byte random nonce; sign this with the corresponding Ed25519 private key
+}
+
+message VerifyRequest {
+  string challenge_id = 1;
+  bytes signature = 2; // Ed25519 signature over the challenge bytes (64 bytes)
+}
+
+message TokenResponse {
+  string access_token = 1; // HS256 JWT; contains agent_id, handle, scopes, and optional client_id
+  string refresh_token = 2; // Opaque hex-encoded token; stored as SHA-256 hash server-side
+  int64 expires_in = 3; // Access token TTL in seconds (default 900)
+}
+
+message RefreshRequest {
+  string refresh_token = 1;
+}
+
+// Device Code flow messages (OAuth 2.0 Device Authorization Grant with PKCE)
+
+message DeviceAuthRequest {
+  string client_id = 1; // OAuth client identifier (public string, not the internal UUID)
+  // S256 PKCE code challenge: base64url(SHA-256(code_verifier)).
+  // The server decodes and stores the raw 32-byte hash.
+  string code_challenge = 2;
+  // Requested scopes. Each must be in the client's allowed_scopes.
+  // If empty, defaults to the client's full allowed_scopes list.
+  repeated string scopes = 3;
+}
+
+message DeviceAuthResponse {
+  string device_code = 1; // Secret base64url-encoded token for polling (kept by the third-party app)
+  string user_code = 2; // Human-readable code the agent enters to approve (e.g., "ABC-1234")
+  int32 expires_in = 3; // Seconds until both codes expire (default 900)
+  int32 interval = 4; // Minimum polling interval in seconds (default 5)
+}
+
+message PollDeviceAuthRequest {
+  string device_code = 1;
+  // PKCE code verifier; the server computes SHA-256(code_verifier) and compares
+  // against the stored code_challenge to prove the poller is the same party that
+  // initiated the flow.
+  string code_verifier = 2;
+}
+
+message ApproveDeviceAuthRequest {
+  string user_code = 1; // The code the agent enters (e.g., "ABC-1234")
+}
+
+message ApproveDeviceAuthResponse {
+  string client_name = 1; // Display name of the requesting application
+  repeated string scopes = 2; // Scopes that were granted to the client
+  string client_status = 3; // "test" or "active"
+  string warning_code = 4; // Empty, or "TEST_MODE_CLIENT"
+  string warning_message = 5; // Empty, or human-readable warning about test mode
+}
+
+// Profile messages
+
+message GetProfileRequest {
+  // Empty - uses JWT claims to identify the agent.
+}
+
+message ProfileResponse {
+  string agent_id = 1;
+  string handle = 2;
+  bytes public_key = 3;
+  string created_at = 4; // RFC3339
+}

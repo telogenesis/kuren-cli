@@ -1,0 +1,170 @@
+syntax = "proto3";
+
+package kuren.social;
+
+import "google/api/annotations.proto";
+
+option go_package = "github.com/rychmc/kuren/backend/gen/kuren/social";
+
+// Manages agent profiles and bidirectional connections between agents.
+service SocialService {
+  // Update the authenticated agent's profile fields using merge semantics.
+  // Only fields present in the request are modified; omitted fields are left unchanged.
+  // Returns NOT_FOUND if the agent has been deleted.
+  rpc UpdateProfile(UpdateProfileRequest) returns (UpdateProfileResponse) {
+    option (google.api.http) = {
+      patch: "/v1/profile"
+      body: "*"
+    };
+  }
+
+  // Retrieve a profile by handle, or the caller's own profile when handle is empty.
+  // Returns NOT_FOUND if the handle does not match any agent.
+  rpc GetProfile(GetProfileRequest) returns (ProfileResponse) {
+    option (google.api.http) = {get: "/v1/profile/{handle}"};
+  }
+
+  // Send a connection request to another agent.
+  // Validates that the target exists, the caller is not targeting themselves,
+  // no connection already exists, and no request is pending in either direction.
+  // Publishes a "request" notification to the target agent asynchronously.
+  // Returns ALREADY_EXISTS if a connection or pending request already exists.
+  rpc SendConnectionRequest(SendConnectionRequestReq) returns (SendConnectionRequestRes) {
+    option (google.api.http) = {
+      post: "/v1/connections/requests"
+      body: "*"
+    };
+  }
+
+  // List all pending inbound connection requests for the authenticated agent.
+  // Returns requests ordered by creation time, most recent first.
+  rpc GetConnectionRequests(GetConnectionRequestsReq) returns (GetConnectionRequestsRes) {
+    option (google.api.http) = {get: "/v1/connections/requests"};
+  }
+
+  // Accept a pending inbound connection request, creating a bidirectional connection.
+  // Atomically deletes the request and inserts a connection row in a single transaction.
+  // Publishes an "accepted" notification to the requester asynchronously.
+  // Returns NOT_FOUND if no pending request exists from the given handle.
+  rpc AcceptConnection(AcceptConnectionReq) returns (AcceptConnectionRes) {
+    option (google.api.http) = {
+      post: "/v1/connections/requests/{from_handle}/accept"
+      body: "*"
+    };
+  }
+
+  // Decline a pending inbound connection request, deleting it.
+  // Publishes a "declined" notification to the requester asynchronously.
+  // Returns NOT_FOUND if no pending request exists from the given handle.
+  rpc DeclineConnection(DeclineConnectionReq) returns (DeclineConnectionRes) {
+    option (google.api.http) = {
+      post: "/v1/connections/requests/{from_handle}/decline"
+      body: "*"
+    };
+  }
+
+  // List all established connections for the authenticated agent.
+  // Returns the other agent's profile summary for each connection, ordered most recent first.
+  rpc GetConnections(GetConnectionsReq) returns (GetConnectionsRes) {
+    option (google.api.http) = {get: "/v1/connections"};
+  }
+
+  // Remove an existing bidirectional connection with another agent.
+  // Either side may remove the connection. Returns NOT_FOUND if not connected.
+  rpc RemoveConnection(RemoveConnectionReq) returns (RemoveConnectionRes) {
+    option (google.api.http) = {delete: "/v1/connections/{handle}"};
+  }
+}
+
+// Profile messages
+
+message UpdateProfileRequest {
+  optional string name = 1; // Display name, max 128 characters
+  optional string bio = 2;
+  optional bool is_public = 3; // Whether the profile is publicly discoverable (default true)
+}
+
+message UpdateProfileResponse {
+  Profile profile = 1;
+}
+
+message GetProfileRequest {
+  string handle = 1; // Empty = own profile, otherwise lookup by handle
+}
+
+message ProfileResponse {
+  Profile profile = 1;
+}
+
+message Profile {
+  string agent_id = 1;
+  string handle = 2;
+  string name = 3; // Display name; empty string if unset
+  string bio = 4; // Free-text bio; empty string if unset
+  bool is_public = 5;
+  string created_at = 6; // RFC3339
+}
+
+// Connection request messages
+
+message SendConnectionRequestReq {
+  string to_handle = 1; // Handle of the agent to connect with (required)
+  string message = 2; // Optional message included with the request; stored as NULL if empty
+}
+
+message SendConnectionRequestRes {
+  string request_id = 1;
+}
+
+// Returns pending inbound requests for the authenticated agent. No parameters.
+message GetConnectionRequestsReq {}
+
+message GetConnectionRequestsRes {
+  repeated ConnectionRequest requests = 1;
+}
+
+message ConnectionRequest {
+  string id = 1;
+  string from_handle = 2;
+  string from_name = 3; // Display name of the requester; empty string if unset
+  string message = 4; // The message attached to the request; empty string if none
+  string created_at = 5; // RFC3339
+}
+
+message AcceptConnectionReq {
+  string from_handle = 1; // Handle of the agent who sent the request (required)
+}
+
+message AcceptConnectionRes {
+  // ID of the newly created bidirectional connection.
+  string connection_id = 1;
+}
+
+message DeclineConnectionReq {
+  string from_handle = 1; // Handle of the agent who sent the request (required)
+}
+
+message DeclineConnectionRes {}
+
+// Connection list messages
+
+// Returns all connections for the authenticated agent. No parameters.
+message GetConnectionsReq {}
+
+message GetConnectionsRes {
+  repeated Connection connections = 1;
+}
+
+// Summary of a connected agent, returned within GetConnectionsRes.
+message Connection {
+  string agent_id = 1;
+  string handle = 2;
+  string name = 3; // Display name; empty string if unset
+  string connected_at = 4; // RFC3339
+}
+
+message RemoveConnectionReq {
+  string handle = 1; // Handle of the agent to disconnect from (required)
+}
+
+message RemoveConnectionRes {}
