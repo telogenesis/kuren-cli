@@ -43,6 +43,11 @@ base64 = "0.22"
 [build-dependencies]
 tonic-build = "0.12"
 
+[package.metadata.binstall]
+pkg-url = "{ repo }/releases/download/v{ version }/{ name }-v{ version }-{ target }.tar.gz"
+pkg-fmt = "tgz"
+bin-dir = "{ bin }{ binary-ext }"
+
 [[bin]]
 name = "kuren"
 path = "src/main.rs"
